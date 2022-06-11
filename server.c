@@ -124,7 +124,6 @@ int main(int argc, char const *argv[])
 				int p = 0;
 				int seg = 0;
 
-				// !! CAMBIAR 3 POR 1000 AL USAR EL ARCHIVO FINAL.
 				while (sequencesCont < fileLengthSequences)
 				{
 					recv(new_socket, data, 2048, 0);
@@ -164,62 +163,27 @@ int main(int argc, char const *argv[])
 				int sizeRef = strlen(reference);
 				int *arrSeq = malloc(sequencesCont * sizeof(int));
 				int *arrRef = malloc(sizeRef * sizeof(int));
-				int dividir = sequencesCont / 10;
-				int lef = sequencesCont % 10;
-				int mux;
-				for (int j = 0; j < dividir; j++)
+				pthread_t threads[sequencesCont];
+				struct _ThreadArgs thread_args[sequencesCont];
+				int rc;
+
+				/* spawn the threads */
+				for (int i = 0; i < sequencesCont; i++)
 				{
-					mux = 10 * j;
-					pthread_t threads[10];
-					struct _ThreadArgs thread_args[10];
-					int rc;
-
-					/* spawn the threads */
-					for (int i = 0; i < 10; i++)
-					{
-						thread_args[i].tid = i + mux;
-						thread_args[i].sequence = sequences[i + mux];
-						rc = pthread_create(&threads[i], NULL, threadFunc, (void *)&thread_args[i]);
-					}
-
-					/* wait for threads to finish */
-					for (int i = 0; i < 10; ++i)
-					{
-						rc = pthread_join(threads[i], NULL);
-					}
-
-					for (int i = 0; i < 10; ++i)
-					{
-						// printf("%d,  %d \n", j + 1, i + mux);
-						arrSeq[i + mux] = thread_args[i].pos;
-					}
+					thread_args[i].tid = i;
+					thread_args[i].sequence = sequences[i];
+					rc = pthread_create(&threads[i], NULL, threadFunc, (void *)&thread_args[i]);
 				}
-				if (lef > 0)
+
+				/* wait for threads to finish */
+				for (int i = 0; i < sequencesCont; ++i)
 				{
-					mux = dividir * 10;
-					pthread_t threads[lef];
-					struct _ThreadArgs thread_args[lef];
-					int rc;
+					rc = pthread_join(threads[i], NULL);
+				}
 
-					/* spawn the threads */
-					for (int i = 0; i < lef; i++)
-					{
-						thread_args[i].tid = i + mux;
-						thread_args[i].sequence = sequences[i + mux];
-						rc = pthread_create(&threads[i], NULL, threadFunc, (void *)&thread_args[i]);
-					}
-
-					/* wait for threads to finish */
-					for (int i = 0; i < lef; ++i)
-					{
-						rc = pthread_join(threads[i], NULL);
-					}
-
-					for (int i = 0; i < lef; ++i)
-					{
-						printf("a %d \n", i + mux);
-						arrSeq[i + mux] = thread_args[i].pos;
-					}
+				for (int i = 0; i < sequencesCont; ++i)
+				{
+					arrSeq[i] = thread_args[i].pos;
 				}
 
 				int contSecMap = 0;
@@ -256,13 +220,11 @@ int main(int argc, char const *argv[])
 					{
 						snprintf(resSequence, sizeof resSequence, "%s a partir del caracter: %d\n", sequences[i], arrSeq[i]);
 						strcpy(resSequences[i], resSequence);
-						// printf("%s", resSequences[i]);
 					}
 					else
 					{
 						snprintf(resSequence, sizeof resSequence, "%s no se encontró.\n", sequences[i]);
 						strcpy(resSequences[i], resSequence);
-						// printf("%s", resSequences[i]);
 					}
 				}
 
@@ -280,7 +242,6 @@ int main(int argc, char const *argv[])
 						if (count2 == 2048)
 						{
 							count2 = 0;
-							// printf("%s", segment2);
 							memset(segment2, 0, sizeof(segment2));
 						}
 
@@ -290,20 +251,17 @@ int main(int argc, char const *argv[])
 						if (count2 == 2047)
 						{
 							send(new_socket, segment2, strlen(segment2), 0);
-							printf("%s", segment2);
 							i--;
 						}
 					}
 
 					send(new_socket, segment2, strlen(segment2), 0);
-					printf("%s", segment2);
 					segCont++;
 					count2 = 0;
 				}
 
 				char resPercentage[200] = "";
 				snprintf(resPercentage, sizeof resPercentage, "El archivo cubre el %.2f%% del genoma de referencia.\n%d secuencias mapeadas.\n%d secuencias no mapeadas.\n", (res * 100), contSecMap, sequencesCont - contSecMap);
-				printf("%s", resPercentage);
 				send(new_socket, resPercentage, strlen(resPercentage), 0);
 			}
 			else if (option == 0)
